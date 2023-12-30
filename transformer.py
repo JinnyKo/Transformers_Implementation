@@ -14,14 +14,14 @@ class TransformerBlock(layers.Layer):
         self.dropout1 = layers.Dropout(rate)
         self.dropout2 = layers.Dropout(rate)
 
-    def call(self, inputs, training): # Equal to forward in Pytorch
+    def call(self, inputs, training):
         attn_output = self.att(inputs, inputs)
         attn_output = self.dropout1(attn_output, training=training)
         out1 = self.layernorm1(inputs + attn_output)
         ffn_output = self.ffn(out1)
         ffn_output = self.dropout2(ffn_output, training=training)
         return self.layernorm2(out1 + ffn_output)
-    
+
 class PositionsEmbedding(layers.Layer):
     def __init__(self, maxlen, vocab_size, embed_dim):
         super(PositionsEmbedding, self).__init__()
@@ -34,3 +34,17 @@ class PositionsEmbedding(layers.Layer):
         positions = self.pos_emb(positions)
         x = self.token_emb(x)
         return x + positions
+
+def create_transformer_model(maxlen, vocab_size, embed_dim, num_heads, ff_dim):
+    inputs = layers.Input(shape=(maxlen,))
+    embedding_layer = PositionsEmbedding(maxlen, vocab_size, embed_dim)
+    x = embedding_layer(inputs)
+    transformer_block = TransformerBlock(embed_dim, num_heads, ff_dim)
+    x = transformer_block(x)
+    x = layers.GlobalAveragePooling1D()(x)
+    x = layers.Dropout(0.1)(x)
+    x = layers.Dense(20, activation="relu")(x)
+    x = layers.Dropout(0.1)(x)
+    outputs = layers.Dense(2, activation="softmax")(x)
+    model = keras.Model(inputs=inputs, outputs=outputs)
+    return model
